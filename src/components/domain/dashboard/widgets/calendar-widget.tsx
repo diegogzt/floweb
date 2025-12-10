@@ -28,12 +28,79 @@ export function CalendarWidget() {
     "Diciembre",
   ];
 
+  // Hardcoded room data with colors
+  const rooms = [
+    { id: 1, name: "Sala A", color: "text-blue-500" },
+    { id: 2, name: "Sala B", color: "text-green-500" },
+    { id: 3, name: "Sala C", color: "text-purple-500" },
+  ];
+
+  // Helper to get random session counts for demo
+  const getSessionsForDate = (d: Date) => {
+    // Use date to generate deterministic random-like data
+    const seed = d.getDate() + d.getMonth();
+    return {
+      total: (seed % 5) + 2, // 2 to 6 sessions
+      byRoom: [
+        (seed % 3) + 1, // Room A: 1-3
+        (seed % 2) + 1, // Room B: 1-2
+        (seed % 4) === 0 ? 0 : 1, // Room C: 0-1
+      ]
+    };
+  };
+
   const getDaysInMonth = (year: number, month: number) => {
     return new Date(year, month + 1, 0).getDate();
   };
 
   const getFirstDayOfMonth = (year: number, month: number) => {
     return new Date(year, month, 1).getDay();
+  };
+
+  const renderWeekView = () => {
+    const startOfWeek = new Date(date);
+    const day = startOfWeek.getDay();
+    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+    startOfWeek.setDate(diff);
+
+    const weekDays = [];
+    for (let i = 0; i < 7; i++) {
+      const current = new Date(startOfWeek);
+      current.setDate(startOfWeek.getDate() + i);
+      weekDays.push(current);
+    }
+
+    return (
+      <div className="grid grid-cols-7 gap-1 h-full pt-2">
+        {weekDays.map((d, index) => {
+          const isToday = d.getDate() === new Date().getDate() && d.getMonth() === new Date().getMonth();
+          const sessions = getSessionsForDate(d);
+          
+          return (
+            <div key={index} className="flex flex-col items-center gap-2">
+              <span className="text-xs text-gray-500 font-medium uppercase">{days[d.getDay()]}</span>
+              <span className={cn(
+                "text-sm font-bold w-8 h-8 flex items-center justify-center rounded-full transition-colors",
+                isToday
+                  ? "bg-primary text-white"
+                  : "text-gray-700 hover:bg-light"
+              )}>
+                {d.getDate()}
+              </span>
+              <div className="mt-1 flex flex-col gap-1 items-center">
+                 {sessions.byRoom.map((count, i) => (
+                   count > 0 && (
+                     <span key={i} className={cn("text-xs font-bold", rooms[i].color)}>
+                       {count}
+                     </span>
+                   )
+                 ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
   };
 
   const renderMonthView = () => {
@@ -54,25 +121,39 @@ export function CalendarWidget() {
         {blanks.map((_, i) => (
           <div key={`blank-${i}`} className="py-2"></div>
         ))}
-        {daysArray.map((d) => (
-          <div
-            key={d}
-            className={cn(
-              "py-2 rounded-full hover:bg-gray-100 cursor-pointer transition-colors",
-              d === new Date().getDate() && month === new Date().getMonth()
-                ? "bg-primary text-white hover:bg-primary/90"
-                : ""
-            )}
-          >
-            {d}
-          </div>
-        ))}
+        {daysArray.map((d) => {
+          const currentDay = new Date(year, month, d);
+          const sessions = getSessionsForDate(currentDay);
+          const isToday = d === new Date().getDate() && month === new Date().getMonth();
+          
+          return (
+            <div
+              key={d}
+              className={cn(
+                "py-2 rounded-lg hover:bg-light cursor-pointer transition-colors flex flex-col items-center justify-center gap-0.5 min-h-[48px]",
+                isToday ? "bg-primary/5" : ""
+              )}
+            >
+              <span className={cn(
+                "w-6 h-6 flex items-center justify-center rounded-full text-xs font-medium",
+                isToday ? "bg-primary text-white" : "text-gray-700"
+              )}>
+                {d}
+              </span>
+              {sessions.total > 0 && (
+                <span className="text-[10px] font-bold text-gray-400">
+                  {sessions.total} ses.
+                </span>
+              )}
+            </div>
+          );
+        })}
       </div>
     );
   };
 
   return (
-    <div className="bg-white p-6 rounded-xl shadow-sm border border-beige h-full">
+    <div className="bg-white p-6 rounded-xl shadow-sm border border-beige h-full flex flex-col">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <CalendarIcon className="h-5 w-5 text-primary" />
@@ -84,8 +165,8 @@ export function CalendarWidget() {
             className={cn(
               "px-2 py-1 text-xs rounded-md transition-colors",
               view === "month"
-                ? "bg-white shadow-sm text-dark"
-                : "text-secondary hover:text-dark"
+                ? "bg-white shadow-sm text-dark font-medium"
+                : "text-gray-500 hover:text-dark"
             )}
           >
             Mes
@@ -95,8 +176,8 @@ export function CalendarWidget() {
             className={cn(
               "px-2 py-1 text-xs rounded-md transition-colors",
               view === "week"
-                ? "bg-white shadow-sm text-dark"
-                : "text-secondary hover:text-dark"
+                ? "bg-white shadow-sm text-dark font-medium"
+                : "text-gray-500 hover:text-dark"
             )}
           >
             Semana
@@ -106,29 +187,41 @@ export function CalendarWidget() {
 
       <div className="flex items-center justify-between mb-4">
         <button
-          onClick={() => setDate(new Date(date.setMonth(date.getMonth() - 1)))}
-          className="p-1 hover:bg-light rounded-full"
+          onClick={() => {
+            const newDate = new Date(date);
+            if (view === 'month') {
+              newDate.setMonth(date.getMonth() - 1);
+            } else {
+              newDate.setDate(date.getDate() - 7);
+            }
+            setDate(newDate);
+          }}
+          className="p-1 hover:bg-light rounded-full transition-colors"
         >
           <ChevronLeft className="h-4 w-4 text-gray-500" />
         </button>
-        <span className="font-medium text-dark">
+        <span className="font-medium text-dark capitalize">
           {monthNames[date.getMonth()]} {date.getFullYear()}
         </span>
         <button
-          onClick={() => setDate(new Date(date.setMonth(date.getMonth() + 1)))}
-          className="p-1 hover:bg-light rounded-full"
+          onClick={() => {
+            const newDate = new Date(date);
+            if (view === 'month') {
+              newDate.setMonth(date.getMonth() + 1);
+            } else {
+              newDate.setDate(date.getDate() + 7);
+            }
+            setDate(newDate);
+          }}
+          className="p-1 hover:bg-light rounded-full transition-colors"
         >
           <ChevronRight className="h-4 w-4 text-gray-500" />
         </button>
       </div>
 
-      {view === "month" ? (
-        renderMonthView()
-      ) : (
-        <div className="flex items-center justify-center h-40 text-gray-500 text-sm">
-          Vista de {view === "week" ? "semana" : "día"} en construcción
-        </div>
-      )}
+      <div className="flex-1">
+        {view === "month" ? renderMonthView() : renderWeekView()}
+      </div>
     </div>
   );
 }
